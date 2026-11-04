@@ -300,9 +300,9 @@ class Falcon:
 
         >>> falcon = Falcon(n)
         >>> sk, _ = falcon.keygen()
-        >>> sk_bytes = falcon.pack(sk)
+        >>> sk_bytes = falcon.pack_sk(sk)
         >>> sk_2 = falcon.unpack_sk(sk_bytes)
-        >>> assert (sk == sk2)
+        >>> assert (sk == sk_2)
         
         """
         assert (len(sk_bytes) % 4 == 0)
@@ -315,6 +315,76 @@ class Falcon:
             polys[i] = [((coef + (q >> 1)) % q) - (q >> 1) for coef in polys[i]]
         sk, _ = self.keygen(polys)
         return sk
+
+    def __poly_bytelen__(self) -> int:
+        """Return the serialized byte length of one polynomial."""
+        return (self.param.n * 14 + 7) >> 3
+
+    @staticmethod
+    def __hex_to_bytes__(hex_str: str, expected_len: int, what: str) -> bytes:
+        """Decode hexadecimal key data and validate its byte length."""
+        value = hex_str.strip()
+        if value[:2].lower() == "0x":
+            value = value[2:]
+        try:
+            decoded = bytes.fromhex(value)
+        except ValueError as error:
+            raise ValueError(f"The {what} is not a valid hexadecimal string") from error
+        if len(decoded) != expected_len:
+            raise ValueError(
+                f"The {what} has {len(decoded)} bytes, expected {expected_len} bytes")
+        return decoded
+
+    @beartype
+    def pack_sk_hex(self, sk) -> str:
+        """
+        Export a Falcon signing key as a hexadecimal string.
+
+        >>> falcon = Falcon(n)
+        >>> sk, _ = falcon.keygen()
+        >>> sk_hex = falcon.pack_sk_hex(sk)
+        >>> sk_2 = falcon.unpack_sk_hex(sk_hex)
+        >>> assert sk_2 == falcon.unpack_sk(falcon.pack_sk(sk))
+        """
+        return self.pack_sk(sk).hex()
+
+    @beartype
+    def unpack_sk_hex(self, sk_hex: str):
+        """
+        Import a Falcon signing key from hexadecimal text.
+
+        >>> sk_hex = falcon.pack_sk_hex(sk)
+        >>> sk_2 = falcon.unpack_sk_hex(sk_hex)
+        >>> assert sk_2 == falcon.unpack_sk(falcon.pack_sk(sk))
+        """
+        sk_bytes = self.__hex_to_bytes__(
+            sk_hex, 4 * self.__poly_bytelen__(), "signing key")
+        return self.unpack_sk(sk_bytes)
+
+    @beartype
+    def pack_vk_hex(self, vk: bytes) -> str:
+        """
+        Export a Falcon verification key as a hexadecimal string.
+
+        >>> _, vk = falcon.keygen()
+        >>> vk_hex = falcon.pack_vk_hex(vk)
+        >>> assert falcon.unpack_vk_hex(vk_hex) == vk
+        """
+        if len(vk) != self.__poly_bytelen__():
+            raise ValueError(
+                f"This does not seem to be a valid key for Falcon-{self.param.n}")
+        return vk.hex()
+
+    @beartype
+    def unpack_vk_hex(self, vk_hex: str) -> bytes:
+        """
+        Import a Falcon verification key from hexadecimal text.
+
+        >>> vk_hex = falcon.pack_vk_hex(vk)
+        >>> assert falcon.unpack_vk_hex(vk_hex) == vk
+        """
+        return self.__hex_to_bytes__(
+            vk_hex, self.__poly_bytelen__(), "verification key")
 
     def __sample_preimage__(self, B0_fft, T_fft, point, seed=None):
         """

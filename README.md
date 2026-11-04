@@ -32,6 +32,17 @@ This repository contains the following files (roughly in order of dependency):
 
 We also provide functions to import to and from byte strings: `falcon.pack_sk(sk)` and `falcon.unpack_sk(sk_bytes)`.
 
+Keys can also be exported to and imported from hexadecimal strings:
+
+```python
+sk_hex = falcon.pack_sk_hex(sk)
+vk_hex = falcon.pack_vk_hex(vk)
+sk = falcon.unpack_sk_hex(sk_hex)
+vk = falcon.unpack_vk_hex(vk_hex)
+```
+
+The import functions accept uppercase or lowercase hex, an optional `0x` prefix, and whitespace. They raise `ValueError` for invalid hex or an incorrect key length.
+
 Upon first use, consider running `make test` to make sure that the code runs properly on your machine. You should obtain (the test battery for `n = 1024` may take a few minutes):
 
 ```
