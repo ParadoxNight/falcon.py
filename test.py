@@ -272,6 +272,46 @@ def test_unpack_and_sign_KAT():
     return True
 
 
+def test_hex_export(n, iterations=10):
+    """Test hexadecimal export/import and use of Falcon keys."""
+    falcon = Falcon(n)
+    key = sign_KAT[n][0]
+    sk, vk = falcon.keygen([key["f"], key["g"], key["F"], key["G"]])
+
+    sk_hex = falcon.pack_sk_hex(sk)
+    vk_hex = falcon.pack_vk_hex(vk)
+    if sk_hex != falcon.pack_sk(sk).hex() or vk_hex != vk.hex():
+        return False
+
+    sk_imported = falcon.unpack_sk_hex(sk_hex)
+    vk_imported = falcon.unpack_vk_hex(vk_hex)
+    if sk_imported != sk or vk_imported != vk:
+        return False
+    if falcon.unpack_vk_hex("  0x" + vk_hex.upper() + "\n") != vk:
+        return False
+
+    for i in range(iterations):
+        message = b"hex" + bytes([i % 256])
+        signature = falcon.sign(sk_imported, message)
+        if falcon.verify(vk_imported, message, signature) is False:
+            return False
+
+    bad_inputs = [
+        (falcon.unpack_vk_hex, vk_hex[:-2]),
+        (falcon.unpack_vk_hex, vk_hex + "00"),
+        (falcon.unpack_vk_hex, "zz" + vk_hex[2:]),
+        (falcon.unpack_sk_hex, sk_hex[:-2]),
+        (falcon.unpack_sk_hex, vk_hex),
+    ]
+    for function, value in bad_inputs:
+        try:
+            function(value)
+            return False
+        except ValueError:
+            pass
+    return True
+
+
 def wrapper_test(my_test, name, n, iterations):
     """
     Common wrapper for tests. Run the test, print whether it is successful,
@@ -307,6 +347,7 @@ def test(n, iterations=500):
     if (n in params):
         wrapper_test(test_compress, "Compress", n, iterations)
         wrapper_test(test_signature, "Signature", n, iterations)
+        wrapper_test(test_hex_export, "Hex export", n, 10)
         # wrapper_test(test_sign_KAT, "Signature KATs", n, iterations)
     print("")
 
